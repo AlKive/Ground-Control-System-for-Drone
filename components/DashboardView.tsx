@@ -1,10 +1,8 @@
 import React from 'react';
 import OverviewCard from './AttitudeIndicator';
-import MissionSummary from './MapView';
-import PerformanceMetrics from './Gauge';
-import TelemetryData from './VideoFeed';
-import ActionButtons from './MessageConsole';
-import type { OverviewStat, Mission } from '../types';
+import MissionHistory from './MissionHistory';
+import ActionButtons from './ActionButtons';
+import type { OverviewStat, Mission, MissionPlan } from '../types';
 
 // SVG Icons for Overview Cards
 const DroneIcon = () => (
@@ -33,10 +31,10 @@ const BatteryIcon = () => (
 interface DashboardViewProps {
     overviewStats: Omit<OverviewStat, 'icon'>[];
     missions: Mission[];
-    onStartMission: () => void;
+    onMissionSetup: () => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, missions, onStartMission }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, missions, onMissionSetup }) => {
     const icons: { [key: string]: React.ReactNode } = {
         flights: <DroneIcon />,
         flightTime: <ClockIcon />,
@@ -47,7 +45,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, 
     return (
         <>
             <div className="mt-8">
-                <h2 className="text-2xl font-bold text-gcs-text-dark">Overview</h2>
+                <h2 className="text-2xl font-bold text-gcs-text-dark dark:text-white">Overview</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-4">
                     {overviewStats.map(stat => (
                         <OverviewCard key={stat.id} {...stat} />
@@ -55,14 +53,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, 
                 </div>
             </div>
 
-            <div className="mt-8 flex-grow flex flex-col lg:flex-row gap-8">
-                <div className="flex-[2] flex flex-col min-w-0">
-                    <MissionSummary missions={missions} />
-                    <ActionButtons onStartMission={onStartMission} />
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8 flex-grow">
+                <div className="lg:col-span-2">
+                    <MissionHistory missions={missions} />
                 </div>
-                <div className="flex-1 flex flex-col gap-8">
-                    <PerformanceMetrics />
-                    <TelemetryData />
+                <div className="flex flex-col">
+                    <ActionButtons onMissionSetup={onMissionSetup} />
                 </div>
             </div>
         </>

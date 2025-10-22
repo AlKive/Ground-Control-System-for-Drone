@@ -9,9 +9,9 @@ interface SettingSectionProps {
 }
 
 const SettingSection: React.FC<SettingSectionProps> = ({ title, description, children }) => (
-    <div className="bg-white p-6 rounded-2xl shadow-sm">
-        <h3 className="text-xl font-bold text-gcs-text-dark">{title}</h3>
-        <p className="text-sm text-gray-500 mt-1 mb-6">{description}</p>
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
+        <h3 className="text-xl font-bold text-gcs-text-dark dark:text-white">{title}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-6">{description}</p>
         <div className="space-y-4">
             {children}
         </div>
@@ -26,10 +26,10 @@ interface ToggleSettingProps {
 }
 
 const ToggleSetting: React.FC<ToggleSettingProps> = ({ label, description, enabled, onToggle }) => (
-    <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0">
+    <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0 dark:border-gray-700">
         <div>
-            <p className="font-semibold text-gcs-text-dark">{label}</p>
-            <p className="text-sm text-gray-500">{description}</p>
+            <p className="font-semibold text-gcs-text-dark dark:text-gray-200">{label}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
         </div>
         <button 
             onClick={onToggle}
@@ -49,12 +49,12 @@ interface SelectSettingProps {
 }
 
 const SelectSetting: React.FC<SelectSettingProps> = ({ label, description, options, value, onChange }) => (
-     <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0">
+     <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0 dark:border-gray-700">
         <div>
-            <p className="font-semibold text-gcs-text-dark">{label}</p>
-            <p className="text-sm text-gray-500">{description}</p>
+            <p className="font-semibold text-gcs-text-dark dark:text-gray-200">{label}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
         </div>
-        <select value={value} onChange={e => onChange(e.target.value)} className="w-48 bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gcs-orange">
+        <select value={value} onChange={e => onChange(e.target.value)} className="w-48 bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gcs-orange dark:bg-gray-700 dark:border-gray-600 dark:text-white">
             {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
         </select>
     </div>
@@ -62,10 +62,13 @@ const SelectSetting: React.FC<SelectSettingProps> = ({ label, description, optio
 
 
 // --- Main Settings Panel ---
+interface SettingsPanelProps {
+    isDarkMode: boolean;
+    onToggleDarkMode: () => void;
+}
 
-const SettingsPanel: React.FC = () => {
-    // Dummy state for settings
-    const [isDarkMode, setDarkMode] = useState(false);
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ isDarkMode, onToggleDarkMode }) => {
+    // Dummy state for other settings
     const [units, setUnits] = useState('Metric');
     const [mapStyle, setMapStyle] = useState('Satellite');
     const [hudColor, setHudColor] = useState('Orange');
@@ -85,7 +88,7 @@ const SettingsPanel: React.FC = () => {
                     label="Dark Mode"
                     description="Enable a darker theme for better viewing in low-light conditions."
                     enabled={isDarkMode}
-                    onToggle={() => setDarkMode(!isDarkMode)}
+                    onToggle={onToggleDarkMode}
                 />
                 <SelectSetting
                     label="Unit System"
@@ -121,14 +124,14 @@ const SettingsPanel: React.FC = () => {
                     value={hudColor}
                     onChange={setHudColor}
                 />
-                <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0">
+                <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0 dark:border-gray-700">
                      <div>
-                        <p className="font-semibold text-gcs-text-dark">Low Battery Warning</p>
-                        <p className="text-sm text-gray-500">Set the threshold for low battery alerts (10-50%).</p>
+                        <p className="font-semibold text-gcs-text-dark dark:text-gray-200">Low Battery Warning</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Set the threshold for low battery alerts (10-50%).</p>
                     </div>
                     <div className="flex items-center gap-2">
-                         <input type="number" defaultValue="20" min="10" max="50" className="w-20 text-center bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gcs-orange" />
-                         <span>%</span>
+                         <input type="number" defaultValue="20" min="10" max="50" className="w-20 text-center bg-white border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gcs-orange dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                         <span className="dark:text-gray-300">%</span>
                     </div>
                 </div>
             </SettingSection>
@@ -140,10 +143,10 @@ const SettingsPanel: React.FC = () => {
                     enabled={autoSync}
                     onToggle={() => setAutoSync(!autoSync)}
                 />
-                 <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0">
+                 <div className="flex items-center justify-between border-t pt-4 first:border-t-0 first:pt-0 dark:border-gray-700">
                     <div>
                         <p className="font-semibold text-red-600">Clear Mission History</p>
-                        <p className="text-sm text-gray-500">Permanently delete all saved flight logs from the application.</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Permanently delete all saved flight logs from the application.</p>
                     </div>
                     <button 
                         onClick={handleClearHistory}
@@ -155,7 +158,7 @@ const SettingsPanel: React.FC = () => {
             </SettingSection>
             
             <div className="flex justify-end gap-4 mt-8 pb-8">
-                 <button className="text-gray-600 font-bold py-3 px-8 rounded-xl transition-all duration-200 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                 <button className="text-gray-600 font-bold py-3 px-8 rounded-xl transition-all duration-200 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white">
                     Reset to Defaults
                 </button>
                  <button className="text-white font-bold py-3 px-8 rounded-xl transition-all duration-200 bg-gcs-orange hover:opacity-90 shadow-lg shadow-gcs-orange/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gcs-orange">

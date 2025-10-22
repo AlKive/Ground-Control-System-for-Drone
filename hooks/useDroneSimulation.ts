@@ -1,27 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { OverviewStat, LiveTelemetry, BreedingSiteInfo } from '../types';
 
-const initialOverviewData: Omit<OverviewStat, 'icon'>[] = [
-  {
-    id: 'flights',
-    label: 'Total Flights',
-    value: '12 Flights',
-    subtext: 'Completed Missions',
-  },
-  {
-    id: 'flightTime',
-    label: 'Total Flight Time',
-    value: '6.7 Hours',
-    subtext: 'Accumulated drone flight duration',
-  },
-  {
-    id: 'battery',
-    label: 'Battery Health',
-    value: '87%',
-    subtext: 'Healthy / Not Charging',
-  },
-];
-
 const defaultTelemetry: LiveTelemetry = {
     gps: { lat: 34.0522, lon: -118.2437 },
     altitude: 0,
@@ -46,22 +25,27 @@ const breedingSiteObjects = {
     Open: ['Stagnant Ponds', 'Construction Puddles', 'Old Tires']
 };
 
-
 export const useDashboardData = (isMissionActive: boolean) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [liveTelemetry, setLiveTelemetry] = useState<LiveTelemetry>(defaultTelemetry);
+  const [battery, setBattery] = useState(98.7);
+  
   const missionTimeRef = useRef(0);
   const initialGpsRef = useRef<{ lat: number, lon: number}>(defaultTelemetry.gps);
   const gpsTrackRef = useRef<{ lat: number; lon: number }[]>([]);
   const detectedSitesRef = useRef<BreedingSiteInfo[]>([]);
 
-
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
+      
+      if (!isMissionActive) {
+        setBattery(b => Math.max(0, b - 0.0005));
+      }
+
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isMissionActive]);
 
   useEffect(() => {
     let simulationInterval: number | undefined;
@@ -83,11 +67,20 @@ export const useDashboardData = (isMissionActive: boolean) => {
         missionTimeRef.current = 0;
         gpsTrackRef.current = [];
         detectedSitesRef.current = [];
-        setLiveTelemetry(prev => ({ ...defaultTelemetry, gps: initialGpsRef.current, battery: { voltage: 16.8, percentage: 99 }, gpsTrack: [], detectedSites: [] }));
+        setLiveTelemetry(prev => ({ 
+            ...defaultTelemetry, 
+            armed: true,
+            gps: initialGpsRef.current, 
+            battery: { ...prev.battery, percentage: battery },
+            gpsTrack: [], 
+            detectedSites: [] 
+        }));
 
         simulationInterval = window.setInterval(() => {
             missionTimeRef.current += 1;
             const seconds = missionTimeRef.current;
+            const newBatteryLevel = Math.max(0, battery - (seconds * (0.05 + Math.random() * 0.01)));
+            setBattery(newBatteryLevel);
 
             setLiveTelemetry(prev => {
                 const newLat = initialGpsRef.current.lat + Math.sin(seconds / 20) * 0.0005;
@@ -119,8 +112,8 @@ export const useDashboardData = (isMissionActive: boolean) => {
                     pitch: Math.cos(seconds / 3) * 3 + (Math.random() - 0.5),
                     heading: (prev.heading + 0.5 + (Math.random() - 0.5)) % 360,
                     battery: {
-                        voltage: Math.max(12, prev.battery.voltage - (0.005 + Math.random() * 0.002)),
-                        percentage: Math.max(0, prev.battery.percentage - (0.1 + Math.random() * 0.05))
+                        voltage: Math.max(12, 12 + (newBatteryLevel/100) * 4.8),
+                        percentage: newBatteryLevel
                     },
                     flightTime: new Date(seconds * 1000).toISOString().substr(14, 5),
                     distanceFromHome: Math.sqrt(Math.pow(seconds * 2, 2) + Math.pow(seconds,2)),
@@ -142,13 +135,34 @@ export const useDashboardData = (isMissionActive: boolean) => {
     }
   }, [isMissionActive]);
 
-  const formattedTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const formattedDate = "October 10, 2025";
+  const formattedTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formattedDate = currentTime.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const overviewStats: Omit<OverviewStat, 'icon'>[] = [
+      {
+        id: 'flights',
+        label: 'Total Flights',
+        value: '12 Flights',
+        subtext: 'Completed Missions',
+      },
+      {
+        id: 'flightTime',
+        label: 'Total Flight Time',
+        value: '6.7 Hours',
+        subtext: 'Accumulated drone flight duration',
+      },
+      {
+        id: 'battery',
+        label: 'System Battery',
+        value: `${battery.toFixed(1)}%`,
+        subtext: battery > 20 ? 'Healthy' : 'Low',
+      },
+  ];
 
   return {
-    overviewStats: initialOverviewData,
-    time: "11:11 am",
+    overviewStats,
+    time: formattedTime,
     date: formattedDate,
-    liveTelemetry,
+    liveTelemetry: { ...liveTelemetry, battery: { ...liveTelemetry.battery, percentage: battery } },
   };
 };

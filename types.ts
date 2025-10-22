@@ -52,3 +52,12 @@ export interface LiveTelemetry {
     detectedSites: BreedingSiteInfo[];
     gpsTrack: { lat: number; lon: number }[];
 }
+
+export interface MissionPlan {
+  id?: string;
+  name: string;
+  waypoints: { lat: number; lon: number }[];
+  altitude: number;
+  speed: number;
+  onCompletionAction: 'RTL' | 'Loiter' | 'Land';
+}

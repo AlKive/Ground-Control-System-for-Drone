@@ -1,0 +1,233 @@
+import React, { useState, useRef, useMemo } from 'react';
+import type { MissionPlan } from '../types';
+import LoadPlanModal from './LoadPlanModal';
+
+const MAP_BOUNDS = {
+    minLat: 34.0500, maxLat: 34.0550,
+    minLon: -118.2450, maxLon: -118.2400,
+};
+
+interface MissionSetupViewProps {
+    onLaunch: (plan: MissionPlan) => void;
+    onClose: () => void;
+}
+
+const CloseIcon = () => (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+);
+
+const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }) => {
+    const [missionName, setMissionName] = useState('New Mission Plan');
+    const [altitude, setAltitude] = useState(50);
+    const [speed, setSpeed] = useState(10);
+    const [completionAction, setCompletionAction] = useState<'RTL' | 'Loiter' | 'Land'>('RTL');
+    const [checklist, setChecklist] = useState([
+        { id: 'battery', text: 'Battery Charged & Secure', checked: false },
+        { id: 'props', text: 'Propellers Secure', checked: false },
+        { id: 'gps', text: 'GPS Lock Acquired', checked: false },
+        { id: 'weather', text: 'Weather Conditions Checked', checked: false },
+    ]);
+    const [isLoadModalOpen, setLoadModalOpen] = useState(false);
+    
+    const [history, setHistory] = useState<({ lat: number; lon: number }[])[]>([[]]);
+    const [historyIndex, setHistoryIndex] = useState(0);
+
+    const waypoints = history[historyIndex];
+
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const isChecklistComplete = useMemo(() => checklist.every(item => item.checked), [checklist]);
+
+    const updateWaypoints = (newWaypoints: { lat: number; lon: number }[]) => {
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(newWaypoints);
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+    };
+    
+    const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!mapContainerRef.current) return;
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const lon = MAP_BOUNDS.minLon + (x / rect.width) * (MAP_BOUNDS.maxLon - MAP_BOUNDS.minLon);
+        const lat = MAP_BOUNDS.maxLat - (y / rect.height) * (MAP_BOUNDS.maxLat - MAP_BOUNDS.minLat);
+        
+        updateWaypoints([...waypoints, { lat, lon }]);
+    };
+    
+    const worldToScreen = (lat: number, lon: number, rect: DOMRect) => {
+        const x = ((lon - MAP_BOUNDS.minLon) / (MAP_BOUNDS.maxLon - MAP_BOUNDS.minLon)) * rect.width;
+        const y = ((MAP_BOUNDS.maxLat - lat) / (MAP_BOUNDS.maxLat - MAP_BOUNDS.minLat)) * rect.height;
+        return { x, y };
+    };
+    
+    const svgPathPoints = useMemo(() => {
+        if (!mapContainerRef.current || waypoints.length === 0) return '';
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        return waypoints.map(wp => {
+            const { x, y } = worldToScreen(wp.lat, wp.lon, rect);
+            return `${x},${y}`;
+        }).join(' ');
+    }, [waypoints, mapContainerRef.current]);
+
+    const handleChecklistItemToggle = (id: string) => {
+        setChecklist(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
+    };
+
+    const handleLaunchClick = () => {
+        const plan: MissionPlan = {
+            name: missionName,
+            waypoints,
+            altitude,
+            speed,
+            onCompletionAction: completionAction,
+        };
+        onLaunch(plan);
+    };
+
+    const handleSavePlan = () => {
+        const newPlan: MissionPlan = {
+            id: `plan-${Date.now()}`,
+            name: missionName,
+            waypoints,
+            altitude,
+            speed,
+            onCompletionAction: completionAction,
+        };
+        const savedPlansRaw = localStorage.getItem('gcs-mission-plans');
+        const savedPlans: MissionPlan[] = savedPlansRaw ? JSON.parse(savedPlansRaw) : [];
+        savedPlans.push(newPlan);
+        localStorage.setItem('gcs-mission-plans', JSON.stringify(savedPlans));
+        alert(`Mission plan "${missionName}" saved!`);
+    };
+
+    const handleLoadPlan = (plan: MissionPlan) => {
+        setMissionName(plan.name);
+        setHistory([plan.waypoints]);
+        setHistoryIndex(0);
+        setAltitude(plan.altitude);
+        setSpeed(plan.speed);
+        setCompletionAction(plan.onCompletionAction);
+        setLoadModalOpen(false);
+    };
+
+    const handleUndo = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (historyIndex > 0) {
+            setHistoryIndex(historyIndex - 1);
+        }
+    };
+    
+    const handleRedo = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (historyIndex < history.length - 1) {
+            setHistoryIndex(historyIndex + 1);
+        }
+    };
+
+    const handleClearWaypoints = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        if (waypoints.length > 0) {
+            updateWaypoints([]);
+        }
+    };
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-gcs-dark bg-opacity-95 backdrop-blur-sm z-40 flex flex-col p-6 text-gcs-text-light font-sans animate-fade-in">
+                <header className="flex justify-between items-center pb-4 border-b border-gray-700">
+                    <h1 className="text-2xl font-bold text-white">Mission Setup & Pre-flight Checklist</h1>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors">
+                        <CloseIcon />
+                    </button>
+                </header>
+
+                <div className="flex-grow flex flex-col lg:flex-row gap-6 mt-6 overflow-hidden">
+                    <div className="flex-[2] flex flex-col gap-4 min-h-[400px]">
+                        <h3 className="text-lg font-semibold text-gcs-orange">Flight Path Planning</h3>
+                        <div ref={mapContainerRef} onClick={handleMapClick} className="flex-1 bg-gray-900 rounded-2xl overflow-hidden relative border-2 border-gray-700 cursor-crosshair">
+                            <img src="https://images.unsplash.com/photo-1542435520-2504a3771520?q=80&w=1200&auto-format=fit=crop" alt="Map" className="w-full h-full object-cover opacity-30" />
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                                {svgPathPoints && <polyline points={svgPathPoints} fill="none" stroke="#F97316" strokeWidth="3" strokeDasharray="5 5" />}
+                                {waypoints.map((wp, index) => {
+                                    if (!mapContainerRef.current) return null;
+                                    const { x, y } = worldToScreen(wp.lat, wp.lon, mapContainerRef.current.getBoundingClientRect());
+                                    return (
+                                        <g key={index}>
+                                            <circle cx={x} cy={y} r="8" fill="rgba(249, 115, 22, 0.3)" />
+                                            <circle cx={x} cy={y} r="4" fill="#F97316" stroke="white" strokeWidth="1.5" />
+                                            <text x={x+8} y={y+4} fontSize="12" fill="white" className="font-mono font-bold">{index + 1}</text>
+                                        </g>
+                                    )
+                                })}
+                            </svg>
+                            <div className="absolute top-2 right-2 flex gap-2">
+                                <button onClick={handleUndo} disabled={historyIndex <= 0} className="bg-black/50 hover:bg-black/70 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Undo</button>
+                                <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="bg-black/50 hover:bg-black/70 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Redo</button>
+                                <button onClick={handleClearWaypoints} className="bg-black/50 hover:bg-black/70 text-white text-xs font-bold py-1 px-3 rounded-md transition-colors">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <aside className="flex-1 flex flex-col gap-5 bg-gray-800/50 p-6 rounded-2xl border border-white/10 overflow-y-auto">
+                        <div>
+                            <label htmlFor="missionName" className="block text-sm font-bold mb-2">Mission Name</label>
+                            <input id="missionName" type="text" value={missionName} onChange={(e) => setMissionName(e.target.value)} className="w-full bg-gray-900/80 p-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-gcs-orange" />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold mb-2">Mission Parameters</label>
+                            <div className="space-y-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1"><span>Altitude</span><span className="font-mono">{altitude} m</span></div>
+                                    <input type="range" min="10" max="120" value={altitude} onChange={(e) => setAltitude(Number(e.target.value))} className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-thumb" />
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1"><span>Speed</span><span className="font-mono">{speed} m/s</span></div>
+                                    <input type="range" min="1" max="25" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-thumb" />
+                                </div>
+                                <div>
+                                    <label className="text-sm">On Completion</label>
+                                    <select value={completionAction} onChange={(e) => setCompletionAction(e.target.value as any)} className="w-full mt-1 bg-gray-900/80 p-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-gcs-orange">
+                                        <option value="RTL">Return to Launch</option>
+                                        <option value="Loiter">Loiter at Last Waypoint</option>
+                                        <option value="Land">Land at Last Waypoint</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex-grow flex flex-col min-h-[150px]">
+                            <label className="block text-sm font-bold mb-2">Pre-flight Checklist</label>
+                            <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-3 flex-grow">
+                                {checklist.map(item => (
+                                    <label key={item.id} className="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" checked={item.checked} onChange={() => handleChecklistItemToggle(item.id)} className="w-5 h-5 rounded bg-gray-600 border-gray-500 text-gcs-orange focus:ring-gcs-orange" />
+                                        <span className={item.checked ? 'text-gray-500 line-through' : 'text-gcs-text-light'}>{item.text}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-700 mt-auto">
+                            <button onClick={() => setLoadModalOpen(true)} className="w-full text-white font-bold py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 transition-colors">Load Plan</button>
+                            <button onClick={handleSavePlan} className="w-full text-white font-bold py-3 px-4 rounded-xl bg-green-600 hover:bg-green-700 transition-colors">Save Plan</button>
+                            <button onClick={onClose} className="w-full text-white font-bold py-3 px-4 rounded-xl bg-white/20 hover:bg-white/30 transition-colors">Cancel</button>
+                            <button 
+                                onClick={handleLaunchClick}
+                                disabled={!isChecklistComplete || waypoints.length < 2}
+                                className="w-full text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 bg-gcs-orange hover:opacity-90 shadow-lg shadow-gcs-orange/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gcs-orange disabled:bg-gray-500 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
+                            >
+                                Launch Mission
+                            </button>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+            {isLoadModalOpen && <LoadPlanModal onLoad={handleLoadPlan} onClose={() => setLoadModalOpen(false)} />}
+        </>
+    );
+};
+
+export default MissionSetupView;

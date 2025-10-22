@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import Sidebar from './components/ControlPanel'; 
 import DashboardHeader from './components/Header'; 
@@ -7,9 +7,10 @@ import DashboardView from './components/DashboardView';
 import AnalyticsPanel from './components/AnalyticsPanel';
 import FlightLogsPanel from './components/FlightLogsPanel';
 import SettingsPanel from './components/SettingsPanel';
+import MissionSetupView from './components/MissionSetupView';
 
 import { useDashboardData } from './hooks/useDroneSimulation'; 
-import type { Mission, BreedingSiteInfo } from './types';
+import type { Mission, BreedingSiteInfo, MissionPlan } from './types';
 
 const initialMissions: Mission[] = [
   { id: 'm12', name: 'Mission 12', date: 'Oct 9, 2025', duration: '22 mins', status: 'Completed', location: '428 Sampaloc', gpsTrack: [{lat: 34.0522, lon: -118.2437}, {lat: 34.0525, lon: -118.2440}, {lat: 34.0528, lon: -118.2435}], detectedSites: [{type: 'Open', object: 'Old Tires'}] },
@@ -25,16 +26,26 @@ type View = 'dashboard' | 'analytics' | 'flightLogs' | 'settings' | 'guide';
 
 const App: React.FC = () => {
   const [isMissionActive, setMissionActive] = useState(false);
+  const [missionPlan, setMissionPlan] = useState<MissionPlan | null>(null);
+  const [isSetupViewVisible, setSetupViewVisible] = useState(false);
+  const [isDarkMode, setDarkMode] = useState(false);
+
   const [missions, setMissions] = useState<Mission[]>(initialMissions);
   const { overviewStats, time, date, liveTelemetry } = useDashboardData(isMissionActive);
   const [currentView, setCurrentView] = useState<View>('dashboard');
 
-  const startMission = () => setMissionActive(true);
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
   
   const endMission = (duration: string, gpsTrack: { lat: number; lon: number }[], detectedSites: BreedingSiteInfo[]) => {
     const newMission: Mission = {
         id: `m-${Date.now()}`,
-        name: `Mission ${missions.length + 1}`,
+        name: missionPlan?.name || `Mission ${missions.length + 1}`,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         duration: `${Math.round(parseInt(duration.split(':')[0]) * 60 + parseInt(duration.split(':')[1]))} secs`,
         status: 'Completed',
@@ -44,7 +55,19 @@ const App: React.FC = () => {
     };
     setMissions(prevMissions => [newMission, ...prevMissions]);
     setMissionActive(false);
+    setMissionPlan(null);
   };
+  
+  const handleLaunchMission = (plan: MissionPlan) => {
+    setMissionPlan(plan);
+    setSetupViewVisible(false);
+    setMissionActive(true);
+  };
+
+  const handleOpenMissionSetup = () => {
+    setSetupViewVisible(true);
+  };
+
 
   const renderView = () => {
     switch (currentView) {
@@ -53,10 +76,10 @@ const App: React.FC = () => {
       case 'flightLogs':
         return <FlightLogsPanel missions={missions} />;
       case 'settings':
-        return <SettingsPanel />;
+        return <SettingsPanel isDarkMode={isDarkMode} onToggleDarkMode={() => setDarkMode(!isDarkMode)} />;
       case 'dashboard':
       default:
-        return <DashboardView overviewStats={overviewStats} missions={missions} onStartMission={startMission} />;
+        return <DashboardView overviewStats={overviewStats} missions={missions} onMissionSetup={handleOpenMissionSetup} />;
     }
   };
   
@@ -69,13 +92,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gcs-background text-gcs-text-dark font-sans">
+    <div className="flex h-screen bg-gcs-background text-gcs-text-dark font-sans dark:bg-gcs-dark dark:text-gcs-text-light">
       <Sidebar currentView={currentView} onNavigate={setCurrentView} />
       <main className="flex-1 flex flex-col p-8 overflow-y-auto">
-        <DashboardHeader time={time} date={date} title={viewTitles[currentView]} />
+        <DashboardHeader time={time} date={date} title={viewTitles[currentView]} batteryPercentage={liveTelemetry.battery.percentage} />
         {renderView()}
       </main>
       
+      {isSetupViewVisible && <MissionSetupView onLaunch={handleLaunchMission} onClose={() => setSetupViewVisible(false)} />}
       {isMissionActive && <LiveMissionView telemetry={liveTelemetry} onEndMission={endMission} />}
     </div>
   );

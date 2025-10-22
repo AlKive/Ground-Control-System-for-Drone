@@ -17,7 +17,7 @@ const BarChart: React.FC = () => {
             {data.map(item => (
                 <div key={item.label} className="flex-1 flex flex-col items-center">
                     <div className="w-full bg-gcs-orange/20 rounded-t-md hover:bg-gcs-orange/40 transition-colors" style={{ height: `${(item.value / maxValue) * 100}%` }}></div>
-                    <span className="text-xs text-gray-500 mt-2">{item.label}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">{item.label}</span>
                 </div>
             ))}
         </div>
@@ -51,7 +51,7 @@ const DonutChart: React.FC<{ percentage: number }> = ({ percentage }) => {
     return (
         <div className="relative flex items-center justify-center" style={{width: size, height: size}}>
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                <circle className="text-gray-200" strokeWidth={strokeWidth} stroke="currentColor" fill="transparent" r={radius} cx={size/2} cy={size/2} />
+                <circle className="text-gray-200 dark:text-gray-600" strokeWidth={strokeWidth} stroke="currentColor" fill="transparent" r={radius} cx={size/2} cy={size/2} />
                 <circle className="text-gcs-orange"
                     strokeWidth={strokeWidth}
                     strokeDasharray={circumference}
@@ -66,8 +66,8 @@ const DonutChart: React.FC<{ percentage: number }> = ({ percentage }) => {
                 />
             </svg>
             <div className="absolute flex flex-col items-center">
-                 <span className="text-2xl font-bold">{percentage}%</span>
-                 <span className="text-xs text-gray-500">Completed</span>
+                 <span className="text-2xl font-bold dark:text-white">{percentage}%</span>
+                 <span className="text-xs text-gray-500 dark:text-gray-400">Completed</span>
             </div>
         </div>
     );
@@ -88,40 +88,40 @@ const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ missions }) => {
     return (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
             {/* Summary Cards */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm"><p className="text-sm text-gray-500">Missions Flown</p><p className="text-4xl font-bold mt-2">{totalMissions}</p><p className="text-xs text-gray-400 mt-1">Total Missions Completed</p></div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm"><p className="text-sm text-gray-500">Coverage Area</p><p className="text-4xl font-bold mt-2">1,255 <span className="text-2xl">ha</span></p><p className="text-xs text-gray-400 mt-1">Total Area Treated</p></div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm"><p className="text-sm text-gray-500">Success Rate</p><p className="text-4xl font-bold mt-2">{successRate}%</p><p className="text-xs text-gray-400 mt-1">Completed Mission Ratio</p></div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm"><p className="text-sm text-gray-500 dark:text-gray-400">Missions Flown</p><p className="text-4xl font-bold mt-2 dark:text-white">{totalMissions}</p><p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Total Missions Completed</p></div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm"><p className="text-sm text-gray-500 dark:text-gray-400">Coverage Area</p><p className="text-4xl font-bold mt-2 dark:text-white">1,255 <span className="text-2xl">ha</span></p><p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Total Area Treated</p></div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm"><p className="text-sm text-gray-500 dark:text-gray-400">Success Rate</p><p className="text-4xl font-bold mt-2 dark:text-white">{successRate}%</p><p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Completed Mission Ratio</p></div>
 
             {/* Charts */}
-            <div className="md:col-span-1 lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="font-bold text-lg">Missions Over Time</h3>
+            <div className="md:col-span-1 lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
+                <h3 className="font-bold text-lg dark:text-white">Missions Over Time</h3>
                 <BarChart />
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-                 <h3 className="font-bold text-lg">Flight Duration Trend</h3>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
+                 <h3 className="font-bold text-lg dark:text-white">Flight Duration Trend</h3>
                  <LineChart />
             </div>
 
             {/* Data Cards */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="font-bold text-lg mb-4">Operational & Efficiency</h3>
-                <div className="space-y-3 text-sm">
-                    <p>Area Covered: <span className="font-semibold float-right">1,550 Hectares</span></p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
+                <h3 className="font-bold text-lg mb-4 dark:text-white">Operational & Efficiency</h3>
+                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                    <p>Area Covered: <span className="font-semibold float-right dark:text-gray-100">1,550 Hectares</span></p>
                     <p>Spray Efficiency: <span className="font-semibold float-right text-green-600">92%</span></p>
-                    <p>Chemical: <span className="font-semibold float-right">15.4 Liters / Mission</span></p>
-                    <hr className="my-2"/>
+                    <p>Chemical: <span className="font-semibold float-right dark:text-gray-100">15.4 Liters / Mission</span></p>
+                    <hr className="my-2 dark:border-gray-700"/>
                     <p>Mosquito Reduction: <span className="font-bold float-right text-red-500">28% (Reduction)</span></p>
                 </div>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-                 <h3 className="font-bold text-lg mb-4">Environmental Data</h3>
-                 <div className="h-32 bg-gray-100 flex items-center justify-center rounded-lg">
-                    <p className="text-gray-500 text-sm">(Environmental Chart)</p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
+                 <h3 className="font-bold text-lg mb-4 dark:text-white">Environmental Data</h3>
+                 <div className="h-32 bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center rounded-lg">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">(Environmental Chart)</p>
                  </div>
-                 <p className="text-center text-sm mt-2 text-gray-600">Avg Temp: 28°C / Humidity 75%</p>
+                 <p className="text-center text-sm mt-2 text-gray-600 dark:text-gray-400">Avg Temp: 28°C / Humidity 75%</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm flex flex-col items-center">
-                 <h3 className="font-bold text-lg mb-4">Mission Performance Summary</h3>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm flex flex-col items-center">
+                 <h3 className="font-bold text-lg mb-4 dark:text-white">Mission Performance Summary</h3>
                  <DonutChart percentage={successRate} />
                  <button className="w-full mt-auto bg-gcs-orange text-white font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity">
                     Export Report
