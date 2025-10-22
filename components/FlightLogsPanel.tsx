@@ -10,6 +10,10 @@ const MapView: React.FC<MapViewProps> = ({ track }) => {
     const height = 500;
     const padding = 20;
 
+    const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: width, height: height });
+    const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
     const points = useMemo(() => {
         if (!track || track.length === 0) return '';
 
@@ -37,26 +41,98 @@ const MapView: React.FC<MapViewProps> = ({ track }) => {
             })
             .join(' ');
     }, [track, width, height, padding]);
+
+    useEffect(() => {
+        // Reset viewbox when the track changes
+        setViewBox({ x: 0, y: 0, width, height });
+    }, [track]);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        setIsPanning(true);
+        setPanStart({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleMouseUp = () => {
+        setIsPanning(false);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isPanning) return;
+        const dx = e.clientX - panStart.x;
+        const dy = e.clientY - panStart.y;
+        const scale = viewBox.width / width;
+
+        setViewBox(prev => ({ ...prev, x: prev.x - dx * scale, y: prev.y - dy * scale }));
+        setPanStart({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        const zoomFactor = 1.1;
+        const direction = e.deltaY < 0 ? 1 / zoomFactor : zoomFactor;
+        const newWidth = viewBox.width * direction;
+        const newHeight = viewBox.height * direction;
+
+        if (newWidth > width * 5 && direction > 1) return;
+        if (newWidth < 50 && direction < 1) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const svgX = viewBox.x + (mouseX / rect.width) * viewBox.width;
+        const svgY = viewBox.y + (mouseY / rect.height) * viewBox.height;
+
+        const newX = svgX - (mouseX / rect.width) * newWidth;
+        const newY = svgY - (mouseY / rect.height) * newHeight;
+
+        setViewBox({ x: newX, y: newY, width: newWidth, height: newHeight });
+    };
+
+    const handleZoom = (direction: 'in' | 'out') => {
+        const zoomFactor = 1.3;
+        const factor = direction === 'in' ? 1 / zoomFactor : zoomFactor;
+        const newWidth = viewBox.width * factor;
+        const newHeight = viewBox.height * factor;
+
+        if (newWidth > width * 5 && direction === 'out') return;
+        if (newWidth < 50 && direction === 'in') return;
+
+        const newX = viewBox.x + (viewBox.width - newWidth) / 2;
+        const newY = viewBox.y + (viewBox.height - newHeight) / 2;
+
+        setViewBox({ x: newX, y: newY, width: newWidth, height: newHeight });
+    };
     
     const lastPoint = track && track.length > 0 ? track[track.length - 1] : null;
 
     return (
-         <div className="relative w-full h-full bg-gray-700 rounded-lg overflow-hidden">
-            <img src="https://images.unsplash.com/photo-1542435520-2504a3771520?q=80&w=800&auto-format&fit=crop" alt="Satellite map background" className="absolute inset-0 w-full h-full object-cover opacity-50"/>
-            {points && (
-                 <svg className="absolute inset-0" viewBox={`0 0 ${width} ${height}`}>
-                    <polyline points={points} fill="none" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                    {/* Start point */}
-                    <circle cx={points.split(' ')[0].split(',')[0]} cy={points.split(' ')[0].split(',')[1]} r="5" fill="#4ade80" />
+         <div 
+            className={`relative w-full h-full bg-gray-700 rounded-lg overflow-hidden ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+        >
+            <img src="https://images.unsplash.com/photo-1542435520-2504a3771520?q=80&w=800&auto-format=fit=crop" alt="Satellite map background" className="absolute inset-0 w-full h-full object-cover opacity-50"/>
+            {points ? (
+                 <svg className="absolute inset-0" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}>
+                    <polyline points={points} fill="none" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                    <circle cx={points.split(' ')[0].split(',')[0]} cy={points.split(' ')[0].split(',')[1]} r="5" fill="#4ade80" vectorEffect="non-scaling-stroke" />
                 </svg>
-            )}
-            {!points && <div className="flex items-center justify-center h-full text-gray-400">No GPS Track Available</div>}
-             {lastPoint && (
-                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs font-mono p-1.5 rounded">
+            ) : <div className="flex items-center justify-center h-full text-gray-400">No GPS Track Available</div>}
+
+            {lastPoint && (
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs font-mono p-1.5 rounded pointer-events-none">
                     <p>Lat: {lastPoint.lat.toFixed(6)}</p>
                     <p>Lon: {lastPoint.lon.toFixed(6)}</p>
                 </div>
             )}
+            <div className="absolute bottom-2 right-2 flex flex-col gap-1">
+                <button onClick={() => handleZoom('in')} className="w-8 h-8 bg-black/50 text-white rounded-md flex items-center justify-center text-xl font-bold hover:bg-black/70">+</button>
+                <button onClick={() => handleZoom('out')} className="w-8 h-8 bg-black/50 text-white rounded-md flex items-center justify-center text-2xl font-bold hover:bg-black/70">-</button>
+            </div>
         </div>
     );
 };
@@ -66,6 +142,9 @@ const SearchIcon = () => (
 );
 const FilterIcon = () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L12 14.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 016 17V14.414L3.293 6.707A1 1 0 013 6V4z"></path></svg>
+);
+const ExportIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
 );
 
 
@@ -79,6 +158,7 @@ const FlightLogsPanel: React.FC<FlightLogsPanelProps> = ({ missions }) => {
     const [statusFilter, setStatusFilter] = useState<'All' | MissionStatus>('All');
     const [breedingSiteFilter, setBreedingSiteFilter] = useState<'All' | 'Has Detections' | 'No Detections'>('All');
     const [showFilters, setShowFilters] = useState(false);
+    const [showExportOptions, setShowExportOptions] = useState(false);
 
     const filtersAreActive = statusFilter !== 'All' || breedingSiteFilter !== 'All';
 
@@ -111,6 +191,75 @@ const FlightLogsPanel: React.FC<FlightLogsPanelProps> = ({ missions }) => {
              setSelectedMission(filteredMissions[0] || null);
         }
     }, [filteredMissions, selectedMission]);
+
+    const handleExport = (option: 'last10' | 'last20' | 'last7days' | 'last30days' | 'all') => {
+        setShowExportOptions(false);
+
+        let missionsToExport: Mission[] = [];
+        const now = new Date();
+
+        switch (option) {
+            case 'last10':
+                missionsToExport = missions.slice(0, 10);
+                break;
+            case 'last20':
+                missionsToExport = missions.slice(0, 20);
+                break;
+            case 'last7days':
+                missionsToExport = missions.filter(m => {
+                    const missionDate = new Date(m.date);
+                    const diffTime = Math.abs(now.getTime() - missionDate.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    return diffDays <= 7;
+                });
+                break;
+            case 'last30days':
+                missionsToExport = missions.filter(m => {
+                    const missionDate = new Date(m.date);
+                    const diffTime = Math.abs(now.getTime() - missionDate.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    return diffDays <= 30;
+                });
+                break;
+            case 'all':
+            default:
+                missionsToExport = [...missions];
+                break;
+        }
+
+        if (missionsToExport.length === 0) {
+            alert('No missions to export for the selected range.');
+            return;
+        }
+
+        const headers = ['ID', 'Name', 'Date', 'Duration', 'Status', 'Location', 'Detected Sites Count', 'GPS Track Points'];
+        const csvRows = [headers.join(',')];
+
+        missionsToExport.forEach(m => {
+            const row = [
+                m.id,
+                `"${m.name.replace(/"/g, '""')}"`,
+                m.date,
+                m.duration,
+                m.status,
+                `"${m.location.replace(/"/g, '""')}"`,
+                m.detectedSites?.length || 0,
+                m.gpsTrack?.length || 0
+            ].join(',');
+            csvRows.push(row);
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gcs-mission-logs-${option}-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     const handleDownloadGpx = () => {
         if (!selectedMission || !selectedMission.gpsTrack || selectedMission.gpsTrack.length === 0) {
@@ -163,12 +312,34 @@ ${trackpoints}
                             <SearchIcon />
                         </div>
                     </div>
-                    <div className="mt-2">
+                    <div className="mt-2 flex items-center">
                         <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gcs-orange dark:text-gray-400 dark:hover:text-gcs-orange">
                            <FilterIcon /> 
                            <span>{showFilters ? 'Hide' : 'Show'} Filters</span>
                            {filtersAreActive && <span className="w-2 h-2 bg-gcs-orange rounded-full ml-1 animate-pulse"></span>}
                         </button>
+                        <div
+                            className="relative inline-block ml-4"
+                            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) { setShowExportOptions(false); }}}
+                        >
+                            <button onClick={() => setShowExportOptions(prev => !prev)} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gcs-orange dark:text-gray-400 dark:hover:text-gcs-orange">
+                                <ExportIcon />
+                                <span>Export Logs</span>
+                            </button>
+                            {showExportOptions && (
+                                <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10 border dark:border-gray-600 animate-fade-in-sm">
+                                    <ul className="py-1 text-sm text-gray-700 dark:text-gray-200">
+                                        <li><button onClick={() => handleExport('last10')} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Last 10 Missions</button></li>
+                                        <li><button onClick={() => handleExport('last20')} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Last 20 Missions</button></li>
+                                        <li><hr className="my-1 dark:border-gray-600" /></li>
+                                        <li><button onClick={() => handleExport('last7days')} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Last 7 Days</button></li>
+                                        <li><button onClick={() => handleExport('last30days')} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Last 30 Days</button></li>
+                                        <li><hr className="my-1 dark:border-gray-600" /></li>
+                                        <li><button onClick={() => handleExport('all')} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">All Missions</button></li>
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
                     </div>
                      {showFilters && (
                         <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600 animate-fade-in-sm">

@@ -1,8 +1,8 @@
 import React from 'react';
 import OverviewCard from './AttitudeIndicator';
 import MissionHistory from './MissionHistory';
-import ActionButtons from './ActionButtons';
-import type { OverviewStat, Mission, MissionPlan } from '../types';
+import PreFlightPanel from './ActionButtons';
+import type { OverviewStat, Mission, LiveTelemetry } from '../types';
 
 // SVG Icons for Overview Cards
 const DroneIcon = () => (
@@ -32,9 +32,11 @@ interface DashboardViewProps {
     overviewStats: Omit<OverviewStat, 'icon'>[];
     missions: Mission[];
     onMissionSetup: () => void;
+    telemetry: LiveTelemetry;
+    setArmedState: (isArmed: boolean) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, missions, onMissionSetup }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, missions, onMissionSetup, telemetry, setArmedState }) => {
     const icons: { [key: string]: React.ReactNode } = {
         flights: <DroneIcon />,
         flightTime: <ClockIcon />,
@@ -58,7 +60,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ overviewStats: rawStats, 
                     <MissionHistory missions={missions} />
                 </div>
                 <div className="flex flex-col">
-                    <ActionButtons onMissionSetup={onMissionSetup} />
+                    <PreFlightPanel onMissionSetup={onMissionSetup} telemetry={telemetry} setArmedState={setArmedState} />
                 </div>
             </div>
         </>

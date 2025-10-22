@@ -15,6 +15,7 @@ const defaultTelemetry: LiveTelemetry = {
     distanceFromHome: 0,
     flightMode: 'Loiter',
     armed: false,
+    verticalSpeed: 0,
     breedingSiteDetected: false,
     detectedSites: [],
     gpsTrack: [],
@@ -35,134 +36,116 @@ export const useDashboardData = (isMissionActive: boolean) => {
   const gpsTrackRef = useRef<{ lat: number; lon: number }[]>([]);
   const detectedSitesRef = useRef<BreedingSiteInfo[]>([]);
 
+  const setArmedState = (shouldArm: boolean) => {
+      if (isMissionActive && !shouldArm) {
+          alert("Cannot disarm while a mission is active. Please end the mission first.");
+          return;
+      }
+      setLiveTelemetry(prev => ({
+          ...prev,
+          armed: shouldArm,
+          flightMode: shouldArm ? 'Loiter' : 'Manual',
+          ...(shouldArm ? {} : { // Reset values on disarm
+              altitude: 0, speed: 0, roll: 0, pitch: 0, verticalSpeed: 0, distanceFromHome: 0,
+          })
+      }));
+  };
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-      
-      if (!isMissionActive) {
-        setBattery(b => Math.max(0, b - 0.0005));
-      }
-
+      setBattery(b => Math.max(0, b - 0.0005));
     }, 1000);
     return () => clearInterval(timer);
-  }, [isMissionActive]);
+  }, []);
 
   useEffect(() => {
-    let simulationInterval: number | undefined;
-    
     if (isMissionActive) {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(position => {
-                initialGpsRef.current = {
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude
-                };
-                 setLiveTelemetry(prev => ({ ...prev, gps: initialGpsRef.current }));
-            }, () => {
-                console.warn("Geolocation permission denied. Using default coordinates.");
-                initialGpsRef.current = defaultTelemetry.gps;
-            });
+                initialGpsRef.current = { lat: position.coords.latitude, lon: position.coords.longitude };
+            }, () => console.warn("Geolocation permission denied. Using default coordinates."));
         }
-        
         missionTimeRef.current = 0;
         gpsTrackRef.current = [];
         detectedSitesRef.current = [];
         setLiveTelemetry(prev => ({ 
-            ...defaultTelemetry, 
-            armed: true,
-            gps: initialGpsRef.current, 
-            battery: { ...prev.battery, percentage: battery },
-            gpsTrack: [], 
-            detectedSites: [] 
+            ...defaultTelemetry, armed: true, flightMode: 'Take Off',
+            gps: initialGpsRef.current, battery: { ...prev.battery, percentage: battery },
+            gpsTrack: [], detectedSites: [] 
         }));
+    } else {
+        setLiveTelemetry(prev => ({...prev, armed: false, flightTime: '00:00', flightMode: 'Manual'}));
+    }
+  }, [isMissionActive]);
 
+
+  useEffect(() => {
+    let simulationInterval: number | undefined;
+    
+    if (liveTelemetry.armed) {
         simulationInterval = window.setInterval(() => {
-            missionTimeRef.current += 1;
+            if(isMissionActive) missionTimeRef.current += 1;
             const seconds = missionTimeRef.current;
-            const newBatteryLevel = Math.max(0, battery - (seconds * (0.05 + Math.random() * 0.01)));
+            const newBatteryLevel = Math.max(0, battery - (isMissionActive ? 0.05 : 0.005) + (Math.random() * 0.01));
             setBattery(newBatteryLevel);
 
             setLiveTelemetry(prev => {
-                const newLat = initialGpsRef.current.lat + Math.sin(seconds / 20) * 0.0005;
-                const newLon = initialGpsRef.current.lon + Math.cos(seconds / 20) * 0.0005;
+                const newLat = initialGpsRef.current.lat + (isMissionActive ? Math.sin(seconds / 20) * 0.0005 : 0);
+                const newLon = initialGpsRef.current.lon + (isMissionActive ? Math.cos(seconds / 20) * 0.0005 : 0);
                 const newGps = { lat: newLat, lon: newLon };
-                gpsTrackRef.current.push(newGps);
+                if (isMissionActive) gpsTrackRef.current.push(newGps);
                 
-                const breedingSiteDetected = (seconds % 25 > 10 && seconds % 25 < 14);
+                const newAltitude = isMissionActive ? (50 + Math.sin(seconds / 10) * 5 + (Math.random() - 0.5) * 2) : 0;
+                const verticalSpeed = newAltitude - prev.altitude; // Per second change
+
+                const breedingSiteDetected = isMissionActive && (seconds % 25 > 10 && seconds % 25 < 14);
                 let currentBreedingSite: BreedingSiteInfo | undefined = undefined;
 
-                if (breedingSiteDetected) {
-                    if (!prev.breedingSiteDetected) { // New detection
+                if (isMissionActive && breedingSiteDetected) {
+                    if (!prev.breedingSiteDetected) {
                         const type = Math.random() > 0.5 ? 'Enclosed' : 'Open';
-                        const objects = breedingSiteObjects[type];
-                        const object = objects[Math.floor(Math.random() * objects.length)];
-                        currentBreedingSite = { type, object };
+                        currentBreedingSite = { type, object: breedingSiteObjects[type][0] };
                         detectedSitesRef.current.push(currentBreedingSite);
                     } else {
-                        currentBreedingSite = prev.currentBreedingSite; // Ongoing detection
+                        currentBreedingSite = prev.currentBreedingSite;
                     }
                 }
 
                 return {
                     ...prev,
                     gps: newGps,
-                    altitude: 50 + Math.sin(seconds / 10) * 5 + (Math.random() - 0.5) * 2,
-                    speed: 10 + Math.cos(seconds/5) * 2 + (Math.random() - 0.5) * 1.5,
-                    roll: Math.sin(seconds / 2) * 5 + (Math.random() - 0.5),
-                    pitch: Math.cos(seconds / 3) * 3 + (Math.random() - 0.5),
-                    heading: (prev.heading + 0.5 + (Math.random() - 0.5)) % 360,
-                    battery: {
-                        voltage: Math.max(12, 12 + (newBatteryLevel/100) * 4.8),
-                        percentage: newBatteryLevel
-                    },
+                    altitude: newAltitude,
+                    speed: isMissionActive ? 10 + Math.cos(seconds/5) * 2 + (Math.random() - 0.5) * 1.5 : 0,
+                    roll: isMissionActive ? Math.sin(seconds / 2) * 5 + (Math.random() - 0.5) : 0,
+                    pitch: isMissionActive ? Math.cos(seconds / 3) * 3 + (Math.random() - 0.5) : 0,
+                    heading: (prev.heading + (isMissionActive ? 0.5 + (Math.random() - 0.5) : 0)) % 360,
+                    verticalSpeed,
+                    battery: { voltage: Math.max(12, 12 + (newBatteryLevel/100) * 4.8), percentage: newBatteryLevel },
                     flightTime: new Date(seconds * 1000).toISOString().substr(14, 5),
-                    distanceFromHome: Math.sqrt(Math.pow(seconds * 2, 2) + Math.pow(seconds,2)),
-                    armed: true,
-                    flightMode: 'Loiter',
-                    breedingSiteDetected,
-                    currentBreedingSite,
-                    detectedSites: [...detectedSitesRef.current],
-                    gpsTrack: [...gpsTrackRef.current],
+                    distanceFromHome: isMissionActive ? Math.sqrt(Math.pow(seconds * 2, 2) + Math.pow(seconds,2)) : 0,
+                    breedingSiteDetected, currentBreedingSite,
+                    detectedSites: [...detectedSitesRef.current], gpsTrack: [...gpsTrackRef.current],
                 };
             });
         }, 1000);
     }
     
-    return () => {
-      if (simulationInterval) {
-        clearInterval(simulationInterval);
-      }
-    }
-  }, [isMissionActive]);
+    return () => { if (simulationInterval) clearInterval(simulationInterval); }
+  }, [liveTelemetry.armed, isMissionActive, battery]);
 
   const formattedTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   const formattedDate = currentTime.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const overviewStats: Omit<OverviewStat, 'icon'>[] = [
-      {
-        id: 'flights',
-        label: 'Total Flights',
-        value: '12 Flights',
-        subtext: 'Completed Missions',
-      },
-      {
-        id: 'flightTime',
-        label: 'Total Flight Time',
-        value: '6.7 Hours',
-        subtext: 'Accumulated drone flight duration',
-      },
-      {
-        id: 'battery',
-        label: 'System Battery',
-        value: `${battery.toFixed(1)}%`,
-        subtext: battery > 20 ? 'Healthy' : 'Low',
-      },
+      { id: 'flights', label: 'Total Flights', value: '12 Flights', subtext: 'Completed Missions' },
+      { id: 'flightTime', label: 'Total Flight Time', value: '6.7 Hours', subtext: 'Accumulated drone flight duration' },
+      { id: 'battery', label: 'System Battery', value: `${battery.toFixed(1)}%`, subtext: battery > 20 ? 'Healthy' : 'Low' },
   ];
 
   return {
-    overviewStats,
-    time: formattedTime,
-    date: formattedDate,
+    overviewStats, time: formattedTime, date: formattedDate,
     liveTelemetry: { ...liveTelemetry, battery: { ...liveTelemetry.battery, percentage: battery } },
+    setArmedState
   };
 };

@@ -3,6 +3,144 @@ import type { LiveTelemetry, BreedingSiteInfo } from '../types';
 import CameraFeed from './CameraFeed';
 import FlightControls from './FlightControls';
 
+// --- Instrument Components (Refined for a more compact layout) ---
+
+const GaugeWrapper: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+    <div className={`relative w-32 h-32 bg-[#0A1019] rounded-full border-2 border-gray-700 flex items-center justify-center ${className}`}>
+        {children}
+    </div>
+);
+
+const Speedometer: React.FC<{ speed: number }> = ({ speed }) => {
+    const SPEED_MAX = 22;
+    const angle = Math.min(speed, SPEED_MAX) / SPEED_MAX * 270 - 135;
+    return (
+        <GaugeWrapper>
+            <div className="absolute w-full h-full">
+                {[...Array(12)].map((_, i) => (
+                    <div key={i} className="absolute w-full h-full" style={{ transform: `rotate(${i * (270 / 11) - 135}deg)` }}>
+                        <div className="w-0.5 h-2.5 bg-white/50 absolute top-2 left-1/2 -ml-0.25 rounded-full"></div>
+                    </div>
+                ))}
+            </div>
+            <div className="absolute w-full h-full text-white text-xs text-center" style={{transform: `rotate(135deg)`}}>
+                <span className="absolute" style={{transform: 'rotate(-135deg) translateY(-3.7rem)'}}>0</span>
+                <span className="absolute" style={{transform: 'rotate(-90deg) translateY(-3.7rem)'}}>6</span>
+                <span className="absolute" style={{transform: 'rotate(0deg) translateY(-3.7rem)'}}>12</span>
+                <span className="absolute" style={{transform: 'rotate(90deg) translateY(-3.7rem)'}}>20</span>
+                <span className="absolute" style={{transform: 'rotate(135deg) translateY(-3.7rem)'}}>22</span>
+            </div>
+            <div className="absolute w-1 h-1/2 bg-transparent top-0 left-1/2 -ml-0.5 origin-bottom transition-transform duration-200" style={{ transform: `rotate(${angle}deg)` }}>
+                <div className="w-1.5 h-14 bg-green-400 rounded-t-full" />
+            </div>
+            <div className="relative z-10 text-center bg-[#0A1019] p-1 rounded-lg">
+                <p className="text-xs text-gray-400">SPEED</p>
+                <p className="text-xl font-mono font-bold text-white">{speed.toFixed(1)}</p>
+                <p className="text-xs text-gray-400">m/s</p>
+            </div>
+        </GaugeWrapper>
+    );
+};
+
+const AttitudeIndicatorGauge: React.FC<{ roll: number; pitch: number }> = ({ roll, pitch }) => {
+    return (
+        <GaugeWrapper>
+            <div className="w-full h-full rounded-full overflow-hidden transition-transform duration-100 ease-linear" style={{ transform: `rotate(${-roll}deg)` }}>
+                <div className="absolute w-full h-[200%] bg-sky-400 top-[-50%]" style={{ transform: `translateY(${-pitch * 1.8}px)` }}>
+                    <div className="h-1/2 bg-yellow-800 absolute bottom-0 w-full" />
+                </div>
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+                <svg viewBox="0 0 100 50" fill="none" className="w-20 h-10">
+                    <path d="M50 25 L30 35 M50 25 L70 35 M50 25 L50 10 M10 25 H 90" stroke="#F59E0B" strokeWidth="4" strokeLinecap="round" />
+                </svg>
+            </div>
+        </GaugeWrapper>
+    );
+};
+
+const HeadingIndicator: React.FC<{ heading: number }> = ({ heading }) => {
+    const cardinals = ['N', 'E', 'S', 'W'];
+    return (
+        <GaugeWrapper>
+            <div className="absolute w-[120%] h-[120%] rounded-full transition-transform duration-200" style={{ transform: `rotate(${-heading}deg)` }}>
+                {[...Array(12)].map((_, i) => (
+                    <div key={i} className="absolute w-full h-full" style={{ transform: `rotate(${i * 30}deg)` }}>
+                        <div className={`absolute top-2.5 left-1/2 -ml-0.5 ${i % 3 === 0 ? 'w-0.5 h-4 bg-white' : 'w-px h-2.5 bg-gray-400'}`} />
+                        {i % 3 === 0 && <span className="absolute top-6 left-1/2 -translate-x-1/2 text-base font-bold text-white">{cardinals[i/3]}</span>}
+                    </div>
+                ))}
+            </div>
+             <div className="absolute inset-0 flex items-center justify-center">
+                <svg viewBox="0 0 50 50" fill="#2DD4BF" className="w-10 h-10 drop-shadow-lg"><path d="M25 5 L40 45 L25 35 L10 45 Z" /></svg>
+            </div>
+            <div className="absolute top-1.5 text-green-400 font-mono text-sm">{Math.round(heading)}°</div>
+        </GaugeWrapper>
+    );
+};
+
+const VerticalSpeedIndicator: React.FC<{ vspeed: number }> = ({ vspeed }) => {
+    const VSPEED_MAX = 10;
+    const angle = Math.max(-VSPEED_MAX, Math.min(vspeed, VSPEED_MAX)) / VSPEED_MAX * 90;
+    return (
+        <GaugeWrapper>
+            <div className="absolute w-full h-full text-white text-sm">
+                <span className="absolute top-1/2 -translate-y-1/2 left-4">0</span>
+                <span className="absolute top-1/4 -translate-y-1/2 left-6">6</span>
+                <span className="absolute bottom-1/4 translate-y-1/2 left-6">6</span>
+                <span className="absolute top-4 left-1/2 -translate-x-1/2 text-xs">UP</span>
+                <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs">DN</span>
+            </div>
+             <div className="absolute w-1/2 h-0.5 bg-transparent top-1/2 -mt-px right-0 origin-left transition-transform duration-200" style={{ transform: `rotate(${angle}deg)` }}>
+                <div className="w-full h-0.5 bg-green-400 rounded-r-full" />
+            </div>
+            <div className="relative z-10 text-center bg-[#0A1019] p-1 rounded-lg">
+                <p className="text-xs text-gray-400">V.SPEED</p>
+                <p className="text-xl font-mono font-bold text-white">{vspeed.toFixed(1)}</p>
+                <p className="text-xs text-gray-400">m/s</p>
+            </div>
+        </GaugeWrapper>
+    );
+};
+
+const AltitudeTape: React.FC<{ altitude: number }> = ({ altitude }) => {
+    const ALT_MAX = 120;
+    const percent = Math.min(altitude, ALT_MAX) / ALT_MAX * 100;
+    return (
+        <div className="w-12 h-full bg-[#0A1019] rounded-lg border-2 border-gray-700 flex flex-col justify-end relative overflow-hidden">
+            <div className="absolute inset-0 text-white text-xs text-right pr-1">
+                {[...Array(7)].map((_,i) => <div key={i} style={{bottom: `${i * (100/6)}%`}} className="absolute w-full pr-1.5">{i * 20}</div>)}
+            </div>
+            <div className="bg-cyan-400/80 w-full transition-all duration-200" style={{ height: `${percent}%` }} />
+            <div className="absolute top-1/2 -translate-y-1/2 w-full h-8 bg-black/30 border-y-2 border-cyan-400 flex items-center justify-center">
+                <span className="font-mono text-cyan-300 font-bold text-base">{altitude.toFixed(1)}</span>
+            </div>
+        </div>
+    );
+};
+
+const FlightInstruments: React.FC<{ telemetry: LiveTelemetry }> = ({ telemetry }) => {
+    return (
+        <div className="bg-gray-800/50 backdrop-blur-md p-5 rounded-2xl border border-white/10 flex flex-col gap-5">
+             <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2 text-center">Instruments</h3>
+             <div className="flex gap-4 justify-center py-2 flex-grow items-center">
+                <div className="grid grid-cols-2 gap-4">
+                    <Speedometer speed={telemetry.speed} />
+                    <AttitudeIndicatorGauge roll={telemetry.roll} pitch={telemetry.pitch} />
+                    <HeadingIndicator heading={telemetry.heading} />
+                    <VerticalSpeedIndicator vspeed={telemetry.verticalSpeed} />
+                </div>
+                <div className="h-full max-h-[272px]">
+                    <AltitudeTape altitude={telemetry.altitude} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- Main Live View Component ---
+
 interface LiveMissionViewProps {
   telemetry: LiveTelemetry;
   onEndMission: (duration: string, gpsTrack: { lat: number; lon: number }[], detectedSites: BreedingSiteInfo[]) => void;
@@ -33,7 +171,8 @@ const LiveMissionView: React.FC<LiveMissionViewProps> = ({ telemetry, onEndMissi
       </header>
       
       <main className="flex-1 flex gap-6 mt-6 overflow-hidden">
-        <div className="flex-[3] flex flex-col gap-4">
+        {/* Left Column: Camera Feed */}
+        <div className="w-3/5 flex flex-col gap-4">
             <div className="flex-1 bg-black rounded-2xl overflow-hidden relative">
                 <CameraFeed telemetry={telemetry} />
             </div>
@@ -44,9 +183,12 @@ const LiveMissionView: React.FC<LiveMissionViewProps> = ({ telemetry, onEndMissi
                 </div>
             )}
         </div>
-        <aside className="flex-1 flex flex-col gap-6">
+        
+        {/* Right Column: Instruments & Controls */}
+        <div className="w-2/5 flex flex-col gap-6 overflow-y-auto">
+            <FlightInstruments telemetry={telemetry} />
             <FlightControls telemetry={telemetry} />
-        </aside>
+        </div>
       </main>
 
       {isConfirmingEndMission && (

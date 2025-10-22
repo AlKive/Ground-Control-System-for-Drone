@@ -47,6 +47,7 @@ export interface LiveTelemetry {
     distanceFromHome: number;
     flightMode: 'Loiter' | 'Manual' | 'RTL' | 'Take Off';
     armed: boolean;
+    verticalSpeed: number;
     breedingSiteDetected: boolean;
     currentBreedingSite?: BreedingSiteInfo;
     detectedSites: BreedingSiteInfo[];
@@ -59,5 +60,4 @@ export interface MissionPlan {
   waypoints: { lat: number; lon: number }[];
   altitude: number;
   speed: number;
-  onCompletionAction: 'RTL' | 'Loiter' | 'Land';
 }

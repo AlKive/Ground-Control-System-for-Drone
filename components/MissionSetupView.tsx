@@ -20,7 +20,6 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
     const [missionName, setMissionName] = useState('New Mission Plan');
     const [altitude, setAltitude] = useState(50);
     const [speed, setSpeed] = useState(10);
-    const [completionAction, setCompletionAction] = useState<'RTL' | 'Loiter' | 'Land'>('RTL');
     const [checklist, setChecklist] = useState([
         { id: 'battery', text: 'Battery Charged & Secure', checked: false },
         { id: 'props', text: 'Propellers Secure', checked: false },
@@ -31,6 +30,7 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
     
     const [history, setHistory] = useState<({ lat: number; lon: number }[])[]>([[]]);
     const [historyIndex, setHistoryIndex] = useState(0);
+    const [draggingWaypointIndex, setDraggingWaypointIndex] = useState<number | null>(null);
 
     const waypoints = history[historyIndex];
 
@@ -43,17 +43,39 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
     };
-    
-    const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!mapContainerRef.current) return;
-        const rect = mapContainerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
 
+    const screenToWorld = (x: number, y: number, rect: DOMRect) => {
         const lon = MAP_BOUNDS.minLon + (x / rect.width) * (MAP_BOUNDS.maxLon - MAP_BOUNDS.minLon);
         const lat = MAP_BOUNDS.maxLat - (y / rect.height) * (MAP_BOUNDS.maxLat - MAP_BOUNDS.minLat);
-        
+        return { lat, lon };
+    };
+    
+    const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (draggingWaypointIndex !== null || !mapContainerRef.current) return;
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        const { lat, lon } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect);
         updateWaypoints([...waypoints, { lat, lon }]);
+    };
+
+    const handleWaypointDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (draggingWaypointIndex === null || !mapContainerRef.current) return;
+
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        const { lat, lon } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect);
+        
+        const newWaypoints = [...waypoints];
+        newWaypoints[draggingWaypointIndex] = { lat, lon };
+
+        const updatedHistory = [...history];
+        updatedHistory[historyIndex] = newWaypoints;
+        setHistory(updatedHistory);
+    };
+
+    const handleMouseUp = () => {
+        if (draggingWaypointIndex !== null) {
+            updateWaypoints(history[historyIndex]);
+        }
+        setDraggingWaypointIndex(null);
     };
     
     const worldToScreen = (lat: number, lon: number, rect: DOMRect) => {
@@ -74,6 +96,10 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
     const handleChecklistItemToggle = (id: string) => {
         setChecklist(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
     };
+    
+    const handleCheckAll = () => {
+        setChecklist(prev => prev.map(item => ({ ...item, checked: true })));
+    };
 
     const handleLaunchClick = () => {
         const plan: MissionPlan = {
@@ -81,7 +107,6 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
             waypoints,
             altitude,
             speed,
-            onCompletionAction: completionAction,
         };
         onLaunch(plan);
     };
@@ -93,7 +118,6 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
             waypoints,
             altitude,
             speed,
-            onCompletionAction: completionAction,
         };
         const savedPlansRaw = localStorage.getItem('gcs-mission-plans');
         const savedPlans: MissionPlan[] = savedPlansRaw ? JSON.parse(savedPlansRaw) : [];
@@ -108,7 +132,6 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
         setHistoryIndex(0);
         setAltitude(plan.altitude);
         setSpeed(plan.speed);
-        setCompletionAction(plan.onCompletionAction);
         setLoadModalOpen(false);
     };
 
@@ -146,18 +169,26 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
                 <div className="flex-grow flex flex-col lg:flex-row gap-6 mt-6 overflow-hidden">
                     <div className="flex-[2] flex flex-col gap-4 min-h-[400px]">
                         <h3 className="text-lg font-semibold text-gcs-orange">Flight Path Planning</h3>
-                        <div ref={mapContainerRef} onClick={handleMapClick} className="flex-1 bg-gray-900 rounded-2xl overflow-hidden relative border-2 border-gray-700 cursor-crosshair">
-                            <img src="https://images.unsplash.com/photo-1542435520-2504a3771520?q=80&w=1200&auto-format=fit=crop" alt="Map" className="w-full h-full object-cover opacity-30" />
+                        <div 
+                            ref={mapContainerRef} 
+                            onClick={handleMapClick}
+                            onMouseMove={handleWaypointDrag}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                            className={`flex-1 bg-gray-900 rounded-2xl overflow-hidden relative border-2 border-gray-700 ${draggingWaypointIndex !== null ? 'cursor-grabbing' : 'cursor-crosshair'}`}
+                        >
+                            <img src="https://images.unsplash.com/photo-1542435520-2504a3771520?q=80&w=1200&auto-format&fit=crop" alt="Map" className="w-full h-full object-cover opacity-30 pointer-events-none" />
                             <svg className="absolute inset-0 w-full h-full pointer-events-none">
                                 {svgPathPoints && <polyline points={svgPathPoints} fill="none" stroke="#F97316" strokeWidth="3" strokeDasharray="5 5" />}
                                 {waypoints.map((wp, index) => {
                                     if (!mapContainerRef.current) return null;
                                     const { x, y } = worldToScreen(wp.lat, wp.lon, mapContainerRef.current.getBoundingClientRect());
                                     return (
-                                        <g key={index}>
-                                            <circle cx={x} cy={y} r="8" fill="rgba(249, 115, 22, 0.3)" />
+                                        <g key={index} onMouseDown={(e) => { e.stopPropagation(); setDraggingWaypointIndex(index); }} style={{ cursor: 'grab', pointerEvents: 'all' }}>
+                                            <circle cx={x} cy={y} r="12" fill="transparent" />
+                                            <circle cx={x} cy={y} r="8" fill={draggingWaypointIndex === index ? 'rgba(249, 115, 22, 0.5)' : 'rgba(249, 115, 22, 0.3)'} />
                                             <circle cx={x} cy={y} r="4" fill="#F97316" stroke="white" strokeWidth="1.5" />
-                                            <text x={x+8} y={y+4} fontSize="12" fill="white" className="font-mono font-bold">{index + 1}</text>
+                                            <text x={x+10} y={y+5} fontSize="12" fill="white" className="font-mono font-bold">{index + 1}</text>
                                         </g>
                                     )
                                 })}
@@ -187,19 +218,16 @@ const MissionSetupView: React.FC<MissionSetupViewProps> = ({ onLaunch, onClose }
                                     <div className="flex justify-between text-sm mb-1"><span>Speed</span><span className="font-mono">{speed} m/s</span></div>
                                     <input type="range" min="1" max="25" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-thumb" />
                                 </div>
-                                <div>
-                                    <label className="text-sm">On Completion</label>
-                                    <select value={completionAction} onChange={(e) => setCompletionAction(e.target.value as any)} className="w-full mt-1 bg-gray-900/80 p-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-gcs-orange">
-                                        <option value="RTL">Return to Launch</option>
-                                        <option value="Loiter">Loiter at Last Waypoint</option>
-                                        <option value="Land">Land at Last Waypoint</option>
-                                    </select>
-                                </div>
                             </div>
                         </div>
 
                         <div className="flex-grow flex flex-col min-h-[150px]">
-                            <label className="block text-sm font-bold mb-2">Pre-flight Checklist</label>
+                             <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-bold">Pre-flight Checklist</label>
+                                <button onClick={handleCheckAll} className="text-xs text-blue-400 hover:text-blue-300 font-semibold hover:underline">
+                                    Check All
+                                </button>
+                            </div>
                             <div className="bg-gray-900/50 border border-gray-700 p-4 rounded-lg space-y-3 flex-grow">
                                 {checklist.map(item => (
                                     <label key={item.id} className="flex items-center gap-3 cursor-pointer">

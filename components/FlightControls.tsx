@@ -14,35 +14,6 @@ const TelemetryItem: React.FC<{ label: string; value: string | number; unit?: st
     </div>
 );
 
-const AttitudeIndicator: React.FC<{ roll: number; pitch: number }> = ({ roll, pitch }) => {
-    return (
-        <div className="relative w-40 h-40 mx-auto mt-2">
-            <div className="relative w-full h-full overflow-hidden rounded-full border-2 border-white/30">
-                {/* Sky and Ground */}
-                <div
-                    className="absolute w-full h-[200%] top-[-50%] left-0 transition-transform duration-100 ease-linear"
-                    style={{ transform: `translateY(${-pitch * 1.5}px) rotate(${-roll}deg)` }}
-                >
-                    <div className="h-1/2 bg-sky-400"></div>
-                    <div className="h-1/2 bg-yellow-800"></div>
-                </div>
-                {/* Horizon Line */}
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white opacity-80" style={{ transform: `translateY(${-pitch * 1.5}px) rotate(${-roll}deg)` }}></div>
-
-                 {/* Aircraft Symbol */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-24 h-12">
-                         <svg viewBox="0 0 100 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M50 25 L30 35 M50 25 L70 35 M50 25 L50 0 M 0 25 H 100" stroke="#F97316" strokeWidth="3" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
 // Icons
 const SignalIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.556a8.889 8.889 0 0111.112-1.41M5.556 12.889a13.333 13.333 0 0116.11-2.044M3 9.222a17.778 17.778 0 0120.222-2.388M12 18.222h.01" /></svg>;
 const BatteryIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
@@ -52,7 +23,7 @@ const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-
 
 const FlightControls: React.FC<{ telemetry: LiveTelemetry }> = ({ telemetry }) => {
     return (
-        <div className="bg-gray-800/50 backdrop-blur-md p-5 rounded-2xl border border-white/10 flex flex-col gap-5 h-full overflow-y-auto">
+        <div className="bg-gray-800/50 backdrop-blur-md p-5 rounded-2xl border border-white/10 flex flex-col gap-4">
             {/* Status Indicators */}
             <div className="grid grid-cols-2 gap-4 text-center">
                 <div className={`p-3 rounded-lg ${telemetry.armed ? 'bg-green-500/80' : 'bg-red-500/80'}`}>
@@ -65,32 +36,21 @@ const FlightControls: React.FC<{ telemetry: LiveTelemetry }> = ({ telemetry }) =
                 </div>
             </div>
 
-            {/* Command Buttons */}
+            {/* Combined Commands & Telemetry */}
             <div>
-                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Commands</h3>
-                 <div className="grid grid-cols-2 gap-3">
+                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-3">System Interface</h3>
+                 <div className="grid grid-cols-2 gap-3 mb-4">
                      <button className="bg-white/10 hover:bg-white/20 p-3 rounded-lg transition-colors">Take Off</button>
                      <button className="bg-white/10 hover:bg-white/20 p-3 rounded-lg transition-colors">Land</button>
                      <button className="bg-white/10 hover:bg-white/20 p-3 rounded-lg transition-colors">Hold Position</button>
                      <button className="bg-gcs-orange/80 hover:bg-gcs-orange p-3 rounded-lg transition-colors font-bold">Return to Launch</button>
                  </div>
-            </div>
-
-            {/* Live Telemetry Data */}
-            <div>
-                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2 mt-2">Telemetry</h3>
-                 <div className="space-y-2">
+                 <div className="grid grid-cols-2 gap-2">
                     <TelemetryItem label="Signal Strength" value={telemetry.signalStrength} unit="dBm" icon={<SignalIcon />} />
                     <TelemetryItem label="Battery" value={`${telemetry.battery.percentage.toFixed(1)}%`} unit={`${telemetry.battery.voltage.toFixed(1)}V`} icon={<BatteryIcon />} />
                     <TelemetryItem label="Satellites" value={telemetry.satellites} icon={<SatelliteIcon />} />
                     <TelemetryItem label="Dist. from Home" value={telemetry.distanceFromHome.toFixed(0)} unit="m" icon={<HomeIcon />} />
                  </div>
-            </div>
-
-            {/* Attitude Indicator */}
-            <div className="mt-auto pt-4">
-                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-2 text-center">Attitude</h3>
-                 <AttitudeIndicator roll={telemetry.roll} pitch={telemetry.pitch} />
             </div>
         </div>
     );

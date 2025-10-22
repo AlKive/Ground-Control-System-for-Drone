@@ -10,7 +10,7 @@ import SettingsPanel from './components/SettingsPanel';
 import MissionSetupView from './components/MissionSetupView';
 
 import { useDashboardData } from './hooks/useDroneSimulation'; 
-import type { Mission, BreedingSiteInfo, MissionPlan } from './types';
+import type { Mission, BreedingSiteInfo, MissionPlan, LiveTelemetry } from './types';
 
 const initialMissions: Mission[] = [
   { id: 'm12', name: 'Mission 12', date: 'Oct 9, 2025', duration: '22 mins', status: 'Completed', location: '428 Sampaloc', gpsTrack: [{lat: 34.0522, lon: -118.2437}, {lat: 34.0525, lon: -118.2440}, {lat: 34.0528, lon: -118.2435}], detectedSites: [{type: 'Open', object: 'Old Tires'}] },
@@ -31,7 +31,7 @@ const App: React.FC = () => {
   const [isDarkMode, setDarkMode] = useState(false);
 
   const [missions, setMissions] = useState<Mission[]>(initialMissions);
-  const { overviewStats, time, date, liveTelemetry } = useDashboardData(isMissionActive);
+  const { overviewStats, time, date, liveTelemetry, setArmedState } = useDashboardData(isMissionActive);
   const [currentView, setCurrentView] = useState<View>('dashboard');
 
   useEffect(() => {
@@ -79,7 +79,7 @@ const App: React.FC = () => {
         return <SettingsPanel isDarkMode={isDarkMode} onToggleDarkMode={() => setDarkMode(!isDarkMode)} />;
       case 'dashboard':
       default:
-        return <DashboardView overviewStats={overviewStats} missions={missions} onMissionSetup={handleOpenMissionSetup} />;
+        return <DashboardView overviewStats={overviewStats} missions={missions} onMissionSetup={handleOpenMissionSetup} telemetry={liveTelemetry} setArmedState={setArmedState} />;
     }
   };
   
