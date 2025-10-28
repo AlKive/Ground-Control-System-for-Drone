@@ -8,6 +8,7 @@ import AnalyticsPanel from './components/AnalyticsPanel';
 import FlightLogsPanel from './components/FlightLogsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import MissionSetupView from './components/MissionSetupView';
+import GuidePanel from './components/GuidePanel';
 
 import { useDashboardData } from './hooks/useDroneSimulation'; 
 import type { Mission, BreedingSiteInfo, MissionPlan, LiveTelemetry } from './types';
@@ -77,6 +78,8 @@ const App: React.FC = () => {
         return <FlightLogsPanel missions={missions} />;
       case 'settings':
         return <SettingsPanel isDarkMode={isDarkMode} onToggleDarkMode={() => setDarkMode(!isDarkMode)} />;
+      case 'guide':
+        return <GuidePanel />;
       case 'dashboard':
       default:
         return <DashboardView overviewStats={overviewStats} missions={missions} onMissionSetup={handleOpenMissionSetup} telemetry={liveTelemetry} setArmedState={setArmedState} />;
